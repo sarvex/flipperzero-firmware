@@ -150,7 +150,7 @@ class Main(App):
         )
 
     def generate_all(self):
-        self.logger.info(f"Generating OTP")
+        self.logger.info("Generating OTP")
         self._processFirstArgs()
         self._processSecondArgs()
         with open(f"{self.args.file}_first.bin", "wb") as file:
@@ -164,18 +164,18 @@ class Main(App):
         return 0
 
     def flash_first(self):
-        self.logger.info(f"Flashing first block of OTP")
+        self.logger.info("Flashing first block of OTP")
 
         self._processFirstArgs()
 
         filename = f"otp_unknown_first_{self.timestamp}.bin"
 
         try:
-            self.logger.info(f"Packing binary data")
+            self.logger.info("Packing binary data")
             with open(filename, "wb") as file:
                 file.write(self._packFirst())
 
-            self.logger.info(f"Flashing OTP")
+            self.logger.info("Flashing OTP")
 
             openocd = OpenOCDProgrammer(
                 self.args.interface,
@@ -186,7 +186,7 @@ class Main(App):
             if not openocd.otp_write(0x1FFF7000, filename):
                 raise Exception("Failed to flash OTP")
 
-            self.logger.info(f"Flashed Successfully")
+            self.logger.info("Flashed Successfully")
         except Exception as e:
             self.logger.exception(e)
             return 1
@@ -196,18 +196,18 @@ class Main(App):
         return 0
 
     def flash_second(self):
-        self.logger.info(f"Flashing second block of OTP")
+        self.logger.info("Flashing second block of OTP")
 
         self._processSecondArgs()
 
         filename = f"otp_{self.args.name}_second_{self.timestamp}.bin"
 
         try:
-            self.logger.info(f"Packing binary data")
+            self.logger.info("Packing binary data")
             with open(filename, "wb") as file:
                 file.write(self._packSecond())
 
-            self.logger.info(f"Flashing OTP")
+            self.logger.info("Flashing OTP")
 
             openocd = OpenOCDProgrammer(
                 self.args.interface,
@@ -218,7 +218,7 @@ class Main(App):
             if not openocd.otp_write(0x1FFF7010, filename):
                 raise Exception("Failed to flash OTP")
 
-            self.logger.info(f"Flashed Successfully")
+            self.logger.info("Flashed Successfully")
         except Exception as e:
             self.logger.exception(e)
             return 1
@@ -228,7 +228,7 @@ class Main(App):
         return 0
 
     def flash_all(self):
-        self.logger.info(f"Flashing OTP")
+        self.logger.info("Flashing OTP")
 
         self._processFirstArgs()
         self._processSecondArgs()
@@ -236,12 +236,12 @@ class Main(App):
         filename = f"otp_{self.args.name}_whole_{self.timestamp}.bin"
 
         try:
-            self.logger.info(f"Packing binary data")
+            self.logger.info("Packing binary data")
             with open(filename, "wb") as file:
                 file.write(self._packFirst())
                 file.write(self._packSecond())
 
-            self.logger.info(f"Flashing OTP")
+            self.logger.info("Flashing OTP")
 
             openocd = OpenOCDProgrammer(
                 self.args.interface,
@@ -252,7 +252,7 @@ class Main(App):
             if not openocd.otp_write(0x1FFF7000, filename):
                 raise Exception("Failed to flash OTP")
 
-            self.logger.info(f"Flashed Successfully")
+            self.logger.info("Flashed Successfully")
         except Exception as e:
             self.logger.exception(e)
             return 1

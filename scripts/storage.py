@@ -245,16 +245,15 @@ class Main(App):
             return 1
 
         self.logger.debug(f'Reading "{self.args.flipper_path}"')
-        data = storage.read_file(self.args.flipper_path)
-        if not data:
-            self.logger.error(f"Error: {storage.last_error}")
-        else:
+        if data := storage.read_file(self.args.flipper_path):
             try:
                 print("Text data:")
                 print(data.decode())
             except:
                 print("Binary hexadecimal data:")
                 print(binascii.hexlify(data).decode())
+        else:
+            self.logger.error(f"Error: {storage.last_error}")
         storage.stop()
         return 0
 

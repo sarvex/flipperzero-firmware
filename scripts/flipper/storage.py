@@ -36,10 +36,7 @@ class BufferedRead:
             # search in buffer
             i = self.buffer.find(eol)
             if i >= 0:
-                if cut_eol:
-                    read = self.buffer[:i]
-                else:
-                    read = self.buffer[: i + len(eol)]
+                read = self.buffer[:i] if cut_eol else self.buffer[: i + len(eol)]
                 self.buffer = self.buffer[i + len(eol) :]
                 return read
 
@@ -87,10 +84,7 @@ class FlipperStorage:
 
     def has_error(self, data):
         """Is data has error"""
-        if data.find(b"Storage error") != -1:
-            return True
-        else:
-            return False
+        return data.find(b"Storage error") != -1
 
     def get_error(self, data):
         """Extract error text from data and print it"""
@@ -101,7 +95,7 @@ class FlipperStorage:
         """List files and dirs on Flipper"""
         path = path.replace("//", "/")
 
-        self.send_and_wait_eol('storage list "' + path + '"\r')
+        self.send_and_wait_eol(f'storage list "{path}' + '"\r')
 
         data = self.read.until(self.CLI_PROMPT)
         lines = data.split(b"\r\n")
@@ -128,16 +122,13 @@ class FlipperStorage:
             type, info = line.split(" ", 1)
             if type == "[D]":
                 # Print directory name
-                print((path + "/" + info).replace("//", "/"))
+                print(f"{path}/{info}".replace("//", "/"))
                 # And recursively go inside
-                self.list_tree(path + "/" + info, level + 1)
+                self.list_tree(f"{path}/{info}", level + 1)
             elif type == "[F]":
                 name, size = info.rsplit(" ", 1)
                 # Print file name and size
-                print((path + "/" + name).replace("//", "/") + ", size " + size)
-            else:
-                # Something wrong, pass
-                pass
+                print(f"{path}/{name}".replace("//", "/") + ", size " + size)
 
     def walk(self, path="/"):
         dirs = []
@@ -171,16 +162,12 @@ class FlipperStorage:
             if type == "[D]":
                 # Print directory name
                 dirs.append(info)
-                walk_dirs.append((path + "/" + info).replace("//", "/"))
+                walk_dirs.append(f"{path}/{info}".replace("//", "/"))
 
             elif type == "[F]":
                 name, size = info.rsplit(" ", 1)
                 # Print file name and size
                 nondirs.append(name)
-            else:
-                # Something wrong, pass
-                pass
-
         # topdown walk, yield before recursy
         yield path, dirs, nondirs
         for new_path in walk_dirs:
@@ -224,7 +211,7 @@ class FlipperStorage:
         """Receive file from Flipper, and get filedata (bytes)"""
         buffer_size = self.chunk_size
         self.send_and_wait_eol(
-            'storage read_chunks "' + filename + '" ' + str(buffer_size) + "\r"
+            f'storage read_chunks "{filename}" {str(buffer_size)}' + "\r"
         )
         answer = self.read.until(self.CLI_EOL)
         filedata = bytearray()
@@ -236,11 +223,11 @@ class FlipperStorage:
         read_size = 0
 
         while read_size < size:
-            self.read.until("Ready?" + self.CLI_EOL)
+            self.read.until(f"Ready?{self.CLI_EOL}")
             self.send("y")
             chunk_size = min(size - read_size, buffer_size)
             filedata.extend(self.port.read(chunk_size))
-            read_size = read_size + chunk_size
+            read_size += chunk_size
 
             percent = str(math.ceil(read_size / size * 100))
             total_chunks = str(math.ceil(size / buffer_size))
@@ -254,16 +241,15 @@ class FlipperStorage:
     def receive_file(self, filename_from, filename_to):
         """Receive file from Flipper to local storage"""
         with open(filename_to, "wb") as file:
-            data = self.read_file(filename_from)
-            if not data:
-                return False
-            else:
+            if data := self.read_file(filename_from):
                 file.write(data)
                 return True
+            else:
+                return False
 
     def exist(self, path):
         """Is file or dir exist on Flipper"""
-        self.send_and_wait_eol('storage stat "' + path + '"\r')
+        self.send_and_wait_eol(f'storage stat "{path}' + '"\r')
         answer = self.read.until(self.CLI_EOL)
         self.read.until(self.CLI_PROMPT)
 
@@ -275,7 +261,7 @@ class FlipperStorage:
 
     def exist_dir(self, path):
         """Is dir exist on Flipper"""
-        self.send_and_wait_eol('storage stat "' + path + '"\r')
+        self.send_and_wait_eol(f'storage stat "{path}' + '"\r')
         answer = self.read.until(self.CLI_EOL)
         self.read.until(self.CLI_PROMPT)
 
@@ -292,22 +278,18 @@ class FlipperStorage:
 
     def exist_file(self, path):
         """Is file exist on Flipper"""
-        self.send_and_wait_eol('storage stat "' + path + '"\r')
+        self.send_and_wait_eol(f'storage stat "{path}' + '"\r')
         answer = self.read.until(self.CLI_EOL)
         self.read.until(self.CLI_PROMPT)
 
-        if self.has_error(answer):
-            self.last_error = self.get_error(answer)
-            return False
-        else:
-            if answer.find(b"File, size:") != -1:
-                return True
-            else:
-                return False
+        if not self.has_error(answer):
+            return answer.find(b"File, size:") != -1
+        self.last_error = self.get_error(answer)
+        return False
 
     def size(self, path):
         """file size on Flipper"""
-        self.send_and_wait_eol('storage stat "' + path + '"\r')
+        self.send_and_wait_eol(f'storage stat "{path}' + '"\r')
         answer = self.read.until(self.CLI_EOL)
         self.read.until(self.CLI_PROMPT)
 
@@ -316,21 +298,19 @@ class FlipperStorage:
             return False
         else:
             if answer.find(b"File, size:") != -1:
-                size = int(
+                return int(
                     "".join(
                         ch
                         for ch in answer.split(b": ")[1].decode("ascii")
                         if ch.isdigit()
                     )
                 )
-                return size
-            else:
-                self.last_error = "access denied"
-                return -1
+            self.last_error = "access denied"
+            return -1
 
     def mkdir(self, path):
         """Create a directory on Flipper"""
-        self.send_and_wait_eol('storage mkdir "' + path + '"\r')
+        self.send_and_wait_eol(f'storage mkdir "{path}' + '"\r')
         answer = self.read.until(self.CLI_EOL)
         self.read.until(self.CLI_PROMPT)
 
@@ -355,7 +335,7 @@ class FlipperStorage:
 
     def remove(self, path):
         """Remove file or directory on Flipper"""
-        self.send_and_wait_eol('storage remove "' + path + '"\r')
+        self.send_and_wait_eol(f'storage remove "{path}' + '"\r')
         answer = self.read.until(self.CLI_EOL)
         self.read.until(self.CLI_PROMPT)
 
@@ -375,12 +355,11 @@ class FlipperStorage:
 
     def hash_flipper(self, filename):
         """Get hash of file on Flipper"""
-        self.send_and_wait_eol('storage md5 "' + filename + '"\r')
+        self.send_and_wait_eol(f'storage md5 "{filename}' + '"\r')
         hash = self.read.until(self.CLI_EOL)
         self.read.until(self.CLI_PROMPT)
 
-        if self.has_error(hash):
-            self.last_error = self.get_error(hash)
-            return ""
-        else:
+        if not self.has_error(hash):
             return hash.decode("ascii")
+        self.last_error = self.get_error(hash)
+        return ""

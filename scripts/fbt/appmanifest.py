@@ -85,10 +85,14 @@ class AppManager:
             )
 
     def find_by_appdir(self, appdir: str):
-        for app in self.known_apps.values():
-            if app._appdir.name == appdir:
-                return app
-        return None
+        return next(
+            (
+                app
+                for app in self.known_apps.values()
+                if app._appdir.name == appdir
+            ),
+            None,
+        )
 
     def load_manifest(self, app_manifest_path: str, app_dir_node: object):
         if not os.path.exists(app_manifest_path):
@@ -124,7 +128,7 @@ class AppManager:
                 f"Failed parsing manifest '{app_manifest_path}' : {e}"
             )
 
-        if len(app_manifests) == 0:
+        if not app_manifests:
             raise FlipperManifestException(
                 f"App manifest '{app_manifest_path}' is malformed"
             )
@@ -197,7 +201,7 @@ class AppBuildset:
                     )
                 )
             # print("provides round", provided)
-            if len(provided) == 0:
+            if not provided:
                 break
             self.appnames.update(provided)
 
@@ -259,11 +263,11 @@ class AppBuildset:
 
     def get_builtin_app_folders(self):
         return sorted(
-            set(
+            {
                 (app._appdir, source_type)
                 for app in self.get_builtin_apps()
                 for source_type in app.sources
-            )
+            }
         )
 
 
@@ -308,19 +312,20 @@ class ApplicationsCGenerator:
                 map(self.get_app_ep_forward, self.buildset.get_apps_of_type(apptype))
             )
             entry_type, entry_block = self.APP_TYPE_MAP[apptype]
-            contents.append(f"const {entry_type} {entry_block}[] = {{")
-            contents.append(
-                ",\n".join(
-                    map(self.get_app_descr, self.buildset.get_apps_of_type(apptype))
+            contents.extend(
+                (
+                    f"const {entry_type} {entry_block}[] = {{",
+                    ",\n".join(
+                        map(
+                            self.get_app_descr,
+                            self.buildset.get_apps_of_type(apptype),
+                        )
+                    ),
+                    "};",
+                    f"const size_t {entry_block}_COUNT = COUNT_OF({entry_block});",
                 )
             )
-            contents.append("};")
-            contents.append(
-                f"const size_t {entry_block}_COUNT = COUNT_OF({entry_block});"
-            )
-
-        archive_app = self.buildset.get_apps_of_type(FlipperAppType.ARCHIVE)
-        if archive_app:
+        if archive_app := self.buildset.get_apps_of_type(FlipperAppType.ARCHIVE):
             contents.extend(
                 [
                     self.get_app_ep_forward(archive_app[0]),
